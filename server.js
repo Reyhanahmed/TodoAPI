@@ -14,22 +14,27 @@ app.get('/', function(req, res){
 });
 
 app.get('/todos', function(req, res){
-	let queryParams = req.query;
-	let filteredTodos = todos;
+	let query = req.query;
 
-	if (queryParams.hasOwnProperty('completed') && queryParams.completed === 'true'){
-		filteredTodos = _.where(todos, {completed: true});
-	} else if(queryParams.hasOwnProperty('completed') && queryParams.completed === 'false'){	
-		filteredTodos = _.where(todos, {completed: false});
-	}
+	let where = {}; 
 
-	if(queryParams.hasOwnProperty('q') && queryParams.q.trim().length > 0){
-		filteredTodos = filteredTodos.filter(function(todo){
-			return todo.description.toLowerCase().indexOf(queryParams.q.toLowerCase()) > -1;
-		});
-	}
-	res.json(filteredTodos);
+	 if (query.hasOwnProperty('completed') && query.completed === 'true'){
+	 	where.completed = true;
+	 } else if(query.hasOwnProperty('completed') && query.completed === 'false'){
+	 	where.completed = false;	
+	 }
 
+	 if(query.hasOwnProperty('q') && query.q.trim().length > 0){
+	 	where.description = {
+	 		$like: '%' + query.q + '%'
+	 	};
+	 }
+
+	db.todo.findAll({ where }).then((todos) => {
+		res.json(todos);
+	}, (e) => {
+		res.status(500).send();
+	});
 });
 
 app.get('/todos/:id', function(req, res){
@@ -44,14 +49,7 @@ app.get('/todos/:id', function(req, res){
 	}, (e) => {
 		res.status(500).send();
 	});
-	// let matchedTodo = _.findWhere(todos, {id: todoId});
-	
-	// if(matchedTodo){
-	// 	res.json(matchedTodo); 
-	// }
-	// else{
-	// 	res.status(404).send();
-	// }
+
 });
 
 app.post('/todos', function(req, res){
