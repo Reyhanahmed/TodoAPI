@@ -1,4 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
+	console.log(DataTypes.STRING);
 	return sequelize.define('todo', {
 		description: {
 			type: DataTypes.STRING,
@@ -13,4 +14,4 @@ module.exports = (sequelize, DataTypes) => {
 			defaultValue: false
 		}
 	});
-}
+};
