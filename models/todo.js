@@ -1,6 +1,5 @@
 let _ = require('underscore');
 module.exports = (sequelize, DataTypes) => {
-	console.log(DataTypes.BOOLEAN);
 	return sequelize.define('todo', {
 		description: {
 			type: DataTypes.STRING,
