@@ -1,6 +1,7 @@
 let express = require('express');
 let bodyParser = require('body-parser');
 let _ = require('underscore');
+let crypto = require('crypto-js');
 let db = require('./db.js')
 
 let app = express();
@@ -123,6 +124,33 @@ app.post('/users', (req, res) => {
 		res.status(400).json(e);
 	});
 });
+
+app.post('/users/login', (req, res) => {
+	let body = _.pick(req.body, "email", "password");
+
+	if(typeof body.email !== 'string' || typeof body.password !== 'string'){
+		res.status(400).send();
+	}
+
+	db.user.findOne({
+		where: {
+			email: body.email
+		}
+	}).then((user) => {
+		if(!user){
+			return res.status(401).send();
+		}
+
+		let hash = crypto.SHA256(body.password+""+user.get('salt'));
+		if(user.get('password_hash') !== hash.toString()){
+			return res.status(401).send();
+		} 
+		res.header('Auth', user.generateToken('authentication')).json(user.toPublicJSON());
+	}, (e) => {
+		res.status(500).send();
+	})
+
+})
 
 db.sequelize.sync().then(function(){
 	app.listen(PORT, function(){

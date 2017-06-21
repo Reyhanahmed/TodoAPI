@@ -1,6 +1,7 @@
 let crypto = require('crypto-js');
 let _ = require('underscore');
 let easypbkdf2 = require('easy-pbkdf2')();
+let jwt = require('jsonwebtoken');
 
 
 module.exports = function(sequelize, DataTypes){
@@ -40,14 +41,36 @@ module.exports = function(sequelize, DataTypes){
 					user.email = user.email.toLowerCase();
 				}
 			}
-		},
-		
+		}
 	});
 
 	// Define Instance Method on User Model
 	User.prototype.toPublicJSON = function(){
 		let json = this.toJSON();
 		return _.pick(json, "id", "email", "createdAt", "updatedAt");
+	}
+
+	User.prototype.generateToken = function(type){
+		if(!_.isString(type)){
+			return undefined;
+		}
+
+		try{
+			let stringData = JSON.stringify({
+				id: this.get('id'),
+				type: type
+			});
+			let encryptedData = crypto.AES.encrypt(stringData, 'abc123!@#').toString();
+			let token = jwt.sign({
+				token: encryptedData
+			}, 'jsonwebtoken');
+
+			return token;
+
+		} catch(e){
+			console.error(e);
+			return undefined;
+		}
 	}
 
 	return User;
