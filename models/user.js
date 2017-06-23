@@ -62,7 +62,7 @@ module.exports = function(sequelize, DataTypes){
 			});
 			let encryptedData = crypto.AES.encrypt(stringData, 'abc123!@#').toString();
 			let token = jwt.sign({
-				token: encryptedData
+				payload: encryptedData
 			}, 'jsonwebtoken');
 
 			return token;

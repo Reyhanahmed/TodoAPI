@@ -2,19 +2,23 @@ let express = require('express');
 let bodyParser = require('body-parser');
 let _ = require('underscore');
 let crypto = require('crypto-js');
-let db = require('./db.js')
+let expressJWT = require('express-jwt');
+let db = require('./db.js');
+
+let {requireAuthentication} = require('./middleware')(db);
 
 let app = express();
 let PORT = process.env.PORT || 3000;
 let todos = [];
 
 app.use(bodyParser.json());
+app.use(expressJWT({secret: 'jsonwebtoken'}).unless({path: ["/users", "/users/login"]}));
 
 app.get('/', function(req, res){
 	res.send('Todo API Root');
 });
 
-app.get('/todos', function(req, res){
+app.get('/todos', requireAuthentication, function(req, res){
 	let query = req.query;
 
 	let where = {}; 
@@ -38,7 +42,7 @@ app.get('/todos', function(req, res){
 	});
 });
 
-app.get('/todos/:id', function(req, res){
+app.get('/todos/:id', requireAuthentication, function(req, res){
 	let todoId = parseInt(req.params.id);
 
 	db.todo.findById(todoId).then((todo) =>{
@@ -53,7 +57,7 @@ app.get('/todos/:id', function(req, res){
 
 });
 
-app.post('/todos', function(req, res){
+app.post('/todos', requireAuthentication, function(req, res){
 	let body = _.pick(req.body, "description", "completed");
 
 	db.todo.create(body).then((todo) => {
@@ -63,7 +67,7 @@ app.post('/todos', function(req, res){
 	});
 });
 
-app.delete('/todos/:id', function(req, res){
+app.delete('/todos/:id', requireAuthentication, function(req, res){
 	let todoId = parseInt(req.params.id);
 
 	db.todo.destroy({
@@ -83,7 +87,7 @@ app.delete('/todos/:id', function(req, res){
 	});
 });
 
-app.put('/todos/:id', function(req, res){
+app.put('/todos/:id', requireAuthentication, function(req, res){
 	let todoId = parseInt(req.params.id);
 	let body = _.pick(req.body, "description", "completed");
 	let attributes = {};
@@ -145,7 +149,13 @@ app.post('/users/login', (req, res) => {
 		if(user.get('password_hash') !== hash.toString()){
 			return res.status(401).send();
 		} 
-		res.header('Auth', user.generateToken('authentication')).json(user.toPublicJSON());
+
+		let token = user.generateToken('authentication');
+		if(token){
+			res.header('Auth', token).json(user.toPublicJSON());
+		} else{
+			res.status(500).send();
+		}
 	}, (e) => {
 		res.status(500).send();
 	})
