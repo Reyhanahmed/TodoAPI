@@ -64,7 +64,6 @@ module.exports = function(sequelize, DataTypes){
 			let token = jwt.sign({
 				payload: encryptedData
 			}, 'jsonwebtoken');
-
 			return token;
 
 		} catch(e){

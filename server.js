@@ -7,6 +7,10 @@ let db = require('./db.js');
 
 let {requireAuthentication} = require('./middleware')(db);
 
+// let requireAuthentication = (req, res, next) => {
+// 	next();
+// }
+
 let app = express();
 let PORT = process.env.PORT || 3000;
 let todos = [];
@@ -20,8 +24,9 @@ app.get('/', function(req, res){
 
 app.get('/todos', requireAuthentication, function(req, res){
 	let query = req.query;
-
-	let where = {}; 
+	let where = {
+		userId: req.user.get('id')
+	}; 
 
 	 if (query.hasOwnProperty('completed') && query.completed === 'true'){
 	 	where.completed = true;
@@ -44,8 +49,12 @@ app.get('/todos', requireAuthentication, function(req, res){
 
 app.get('/todos/:id', requireAuthentication, function(req, res){
 	let todoId = parseInt(req.params.id);
-
-	db.todo.findById(todoId).then((todo) =>{
+	db.todo.findOne({
+		where: {
+			id: todoId,
+			userId: req.user.get('id')
+		}
+	}).then((todo) =>{
 		if(todo){
 			res.json(todo.toJSON());
 		} else{
@@ -61,7 +70,11 @@ app.post('/todos', requireAuthentication, function(req, res){
 	let body = _.pick(req.body, "description", "completed");
 
 	db.todo.create(body).then((todo) => {
-		res.json(todo.toJSON());
+		req.user.addTodo(todo).then(() => {
+			return todo.reload()
+		}).then((todo) => {
+			res.json(todo.toJSON());
+		});
 	}, (e) => {
 		res.status(400).json(e);
 	});
@@ -72,7 +85,8 @@ app.delete('/todos/:id', requireAuthentication, function(req, res){
 
 	db.todo.destroy({
 		where: {
-			id: todoId
+			id: todoId,
+			userId: req.user.get(id)
 		}
 	}).then((rowsDeleted) => {
 		if(rowsDeleted === 0){
@@ -101,7 +115,12 @@ app.put('/todos/:id', requireAuthentication, function(req, res){
 		attributes.description = body.description;
 	}
 
-	db.todo.findById(todoId).then((todo) => {
+	db.todo.findOne({
+		where: {
+			id: todoId,
+			userId: req.user.get('id')
+		}
+	}).then((todo) => {
 		if(todo){
 			return todo.update(attributes).then((todo) => {
 				res.json(todo.toJSON());
@@ -131,6 +150,7 @@ app.post('/users', (req, res) => {
 
 app.post('/users/login', (req, res) => {
 	let body = _.pick(req.body, "email", "password");
+	let userInstance;
 
 	if(typeof body.email !== 'string' || typeof body.password !== 'string'){
 		res.status(400).send();
@@ -144,25 +164,35 @@ app.post('/users/login', (req, res) => {
 		if(!user){
 			return res.status(401).send();
 		}
-
+		
 		let hash = crypto.SHA256(body.password+""+user.get('salt'));
 		if(user.get('password_hash') !== hash.toString()){
 			return res.status(401).send();
 		} 
 
 		let token = user.generateToken('authentication');
-		if(token){
-			res.header('Auth', token).json(user.toPublicJSON());
-		} else{
-			res.status(500).send();
-		}
-	}, (e) => {
+		userInstance = user;
+		return db.token.create({
+			token
+		});
+	
+	}).then((tokenInstance) => {
+		res.header('Auth', tokenInstance.get('token')).json(userInstance.toPublicJSON());
+	}).catch((e) => {
+		res.status(500).send();
+	});
+
+});
+
+app.post('/users/logout', requireAuthentication, (req, res) => {
+	req.token.destroy().then(() => {
+		res.status(204).send();
+	}).catch(() => {
 		res.status(500).send();
 	})
+});
 
-})
-
-db.sequelize.sync().then(function(){
+db.sequelize.sync({force: true}).then(function(){
 	app.listen(PORT, function(){
 		console.log(`Server is running on port ${PORT}`);
 	});
