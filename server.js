@@ -4,6 +4,7 @@ let _ = require('underscore');
 let crypto = require('crypto-js');
 let expressJWT = require('express-jwt');
 let db = require('./db.js');
+const helmet = require('helmet');
 
 let {requireAuthentication} = require('./middleware')(db);
 
@@ -17,6 +18,8 @@ let todos = [];
 
 app.use(bodyParser.json());
 app.use(expressJWT({secret: 'jsonwebtoken'}).unless({path: ["/users", "/users/login"]}));
+// setting security middleware
+app.use(helmet());
 
 app.get('/', function(req, res){
 	res.send('Todo API Root');
